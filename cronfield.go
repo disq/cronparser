@@ -19,6 +19,7 @@ type CronValue struct {
 	Values []int
 }
 
+// fieldParserFunc takes a string for a CronField, and returns an integer, or nil
 type fieldParserFunc func(*CronField, string) *int
 
 // Fields returns valid CronFields in a standard crontab line

@@ -3,15 +3,16 @@ package cronparser
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 var (
 	lineRe = regexp.MustCompile(`^\s*(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s*$`)
-	starRe = regexp.MustCompile(`^(\*\/[0-9]+)$`)
-	rangRe = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
+	rangRe = regexp.MustCompile(`^(([0-9]+)-([0-9]+)|\*)(\/([0-9]+))?$`)
 )
 
+// Parse a crontab line. Returns []CronValue, the command, and error.
 func Parse(s string) (values []CronValue, cmd string, retErr error) {
 	fields := Fields()
 
@@ -39,6 +40,7 @@ func Parse(s string) (values []CronValue, cmd string, retErr error) {
 	return
 }
 
+// parsePossibleValues splits the non-whitespace string s into comma-separated parts and attempts to parse each part
 func (f *CronField) parsePossibleValues(s string) (vals []int, retErr error) {
 	defer func() {
 		if retErr == nil && len(vals) == 0 {
@@ -48,8 +50,17 @@ func (f *CronField) parsePossibleValues(s string) (vals []int, retErr error) {
 
 	commaParts := strings.Split(s, ",")
 	for _, part := range commaParts {
-		if ma := starRe.FindStringSubmatch(part); len(ma) == 2 {
-			v, err := f.parseStar(ma[1])
+		if ma := rangRe.FindStringSubmatch(part); len(ma) == 4 || len(ma) == 6 {
+			if ma[1] == "*" { // "*" means first-last
+				ma[2] = strconv.Itoa(f.Min)
+				ma[3] = strconv.Itoa(f.Max)
+			}
+			step := ""
+			if len(ma) == 6 {
+				step = ma[5]
+			}
+
+			v, err := f.parseRange(ma[2], ma[3], step)
 			if err != nil {
 				retErr = err
 				return
@@ -58,25 +69,72 @@ func (f *CronField) parsePossibleValues(s string) (vals []int, retErr error) {
 			continue
 		}
 
-		if ma := rangRe.FindStringSubmatch(part); len(ma) == 3 {
-			v, err := f.parseRange(ma[1], ma[2])
-			if err != nil {
-				retErr = err
-				return
-			}
-			vals = append(vals, v...)
-			continue
+		// Single digit without range
+		result, err := f.parseNumeric(part)
+		if err != nil {
+			retErr = err
+			return
 		}
 
+		vals = append(vals, result)
 	}
 
 	return
 }
 
-func (f *CronField) parseStar(i string) (vals []int, retErr error) {
+func (f *CronField) parseNumeric(s string) (result int, retErr error) {
+	defer func() {
+		if retErr != nil && f.Parser != nil { // About to return error? Try the custom parser...
+			v := f.Parser(f, s)
+			if v != nil { // Override error if indeed valid
+				result = *v
+				retErr = nil
+			}
+		}
+	}()
+
+	// Must be int
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		retErr = fmt.Errorf("not an integer")
+		return
+	}
+	result = int(i) // int64 to int
+	if result < f.Min || result > f.Max {
+		retErr = fmt.Errorf("%v: out of range", result)
+	}
 	return
 }
 
-func (f *CronField) parseRange(start, end string) (vals []int, retErr error) {
+func (f *CronField) parseRange(start, end, step string) (vals []int, retErr error) {
+	stp := 1
+	if step != "" {
+		if i, err := strconv.ParseInt(step, 10, 64); err != nil {
+			retErr = fmt.Errorf("step should be numeric")
+			return
+		} else if i < 1 {
+			retErr = fmt.Errorf("step should be positive")
+			return
+		} else {
+			stp = int(i)
+		}
+	}
+
+	var st, en int
+
+	st, retErr = f.parseNumeric(start)
+	if retErr != nil {
+		return
+	}
+
+	en, retErr = f.parseNumeric(end)
+	if retErr != nil {
+		return
+	}
+
+	for i := st; i <= en; i += stp {
+		vals = append(vals, i)
+	}
+
 	return
 }

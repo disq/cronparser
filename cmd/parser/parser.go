@@ -3,9 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
-
 	"strconv"
+	"strings"
 
 	"github.com/disq/cronparser"
 )
@@ -38,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	const format = "%14v %v\n"
+	const format = "%-14v %v\n"
 
 	for _, v := range vals {
 		s := make([]string, len(v.Values))
