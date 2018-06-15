@@ -43,6 +43,19 @@ func TestBasicCases(t *testing.T) {
 			ExpectedCmd: "/usr/bin/find",
 			ExpectedErr: nil,
 		},
+		{
+			Input: "15 0 1,15 * Fri-Tue /usr/bin/find",
+
+			ExpectedValues: map[string][]int{
+				"minute":       {15},
+				"hour":         {0},
+				"day of month": {1, 15},
+				"month":        {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+				"day of week":  {0, 1, 2, 5, 6},
+			},
+			ExpectedCmd: "/usr/bin/find",
+			ExpectedErr: nil,
+		},
 	}
 
 	for _, cs := range cases {

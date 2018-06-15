@@ -3,6 +3,7 @@ package cronparser
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -129,6 +130,24 @@ func (f *CronField) parseRange(start, end, step string) (vals []int, retErr erro
 
 	en, retErr = f.parseNumeric(end)
 	if retErr != nil {
+		return
+	}
+
+	// Edge case: 23-4: 23..[f.Max] + [f.Min]..4
+	if en < st {
+		if stp != 1 {
+			return nil, fmt.Errorf("Custom step not supported with reverse bounds")
+		}
+		for i := st; i <= f.Max; i += stp {
+			vals = append(vals, i)
+		}
+		// TODO handle carry of stp
+		for i := f.Min; i <= en; i += stp {
+			vals = append(vals, i)
+		}
+
+		sort.Ints(vals)
+
 		return
 	}
 
