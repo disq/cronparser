@@ -9,7 +9,7 @@ import (
 
 var (
 	lineRe = regexp.MustCompile(`^\s*(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s*$`)
-	rangRe = regexp.MustCompile(`^(([0-9]+)-([0-9]+)|\*)(\/([0-9]+))?$`)
+	rangRe = regexp.MustCompile(`^((.+?)-(.+?)|\*)(\/([0-9]+))?$`)
 )
 
 // Parse a crontab line. Returns []CronValue, the command, and error.
